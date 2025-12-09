@@ -1,0 +1,192 @@
+# JiT Training Configuration for CIFAR-10
+# 使用 CIFAR-10 数据集进行快速测试
+
+# ============================================
+# Trainer 配置
+# ============================================
+trainer:
+  # 训练轮数（CIFAR 数据集较小，可以快速训练）
+  max_epochs: 100
+  
+  # 硬件配置
+  accelerator: gpu
+  devices: 1                    # 单 GPU 快速测试
+  strategy: auto                # 单卡时使用 auto
+  
+  # 精度设置
+  precision: bf16-mixed         # 混合精度训练
+  
+  # 性能优化
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+  
+  # 日志和检查点
+  log_every_n_steps: 50
+  enable_checkpointing: false   # 使用自定义 checkpoint
+  enable_progress_bar: true
+  enable_model_summary: true
+  
+  # SwanLab 日志记录器
+  logger:
+    class_path: swanlab.integration.pytorch_lightning.SwanLabLogger
+    init_args:
+      project: JiT-CIFAR10
+      experiment_name: jit-b16-256
+      description: "JiT-B/16 on CIFAR-10 (256x256)"
+      config:
+        model: JiT-B/16
+        dataset: CIFAR-10
+        img_size: 256
+  
+  # 快速测试选项（可选）
+  # fast_dev_run: false
+  # limit_train_batches: 100
+  # limit_val_batches: 10
+  callbacks:
+    - class_path: callbacks.jit_callbacks.EMACallback
+      init_args:
+        ema_decay1: 0.9999
+        ema_decay2: 0.9996
+    - class_path: callbacks.jit_callbacks.JiTModelCheckpoint
+      init_args:
+        dirpath: ./outputs/cifar10/checkpoints
+        save_last_freq: 10
+        save_milestone_freq: 50
+    - class_path: callbacks.jit_callbacks.LearningRateSchedulerCallback
+      init_args:
+        learning_rate: 0.00016  # 与 model.learning_rate 保持一致
+        lr_schedule: constant
+        warmup_epochs: 5
+        min_lr: 0.0
+        epochs: 100
+    - class_path: callbacks.jit_callbacks.MetricLoggerCallback
+      init_args:
+        log_freq: 50    
+    # 图像生成和可视化
+    - class_path: callbacks.jit_callbacks.ImageGenerationCallback
+      init_args:
+        num_samples: 16           # 每次生成 16 张图像
+        num_classes: 10           # CIFAR-10 有 10 个类别
+        img_size: 256
+        use_ema: true             # 使用 EMA 参数生成
+        ema_version: 1            # 使用第一个 EMA
+        fixed_classes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]  # CIFAR-10 所有类别
+        log_every_n_epochs: 1     # 每个 epoch 记录一次
+
+
+# ============================================
+# Model 配置
+# ============================================
+model:
+  class_path: models.modelmodule.JiTLightningModule
+  init_args:
+    # 模型架构（使用较小的模型）
+    model_name: JiT-B/16        # Base 模型
+    img_size: 256               # 上采样到 256（从 CIFAR 的 32×32）
+    num_classes: 10             # CIFAR-10 有 10 个类别
+    attn_dropout: 0.0
+    proj_dropout: 0.0
+    
+    # 优化器参数
+    learning_rate: 0.0001       # CIFAR 可以用稍小的学习率
+    weight_decay: 0.0
+    
+    # EMA 参数
+    ema_decay1: 0.9999
+    ema_decay2: 0.9996
+    
+    # 扩散模型参数
+    P_mean: -0.8
+    P_std: 0.8
+    noise_scale: 1.0
+    t_eps: 0.05
+    label_drop_prob: 0.1
+    
+    # 采样参数
+    sampling_method: heun
+    num_sampling_steps: 50
+    cfg_scale: 2.0              # CIFAR 可能需要较小的 CFG
+    cfg_interval: [0.1, 1.0]
+
+
+# ============================================
+# Data 配置
+# ============================================
+data:
+  class_path: datas.cifar_datamodule.CIFARDataModule
+  init_args:
+    # 数据集配置
+    data_path: /fs/hdd/share/lick/datasets/cifar10      # CIFAR 数据下载路径
+    dataset_name: cifar10        # 'cifar10' 或 'cifar100'
+    download: true               # 自动下载数据集
+    
+    # 数据加载参数
+    img_size: 256                # 上采样目标尺寸
+    batch_size: 64               # CIFAR 数据集小，可以用较大 batch
+    num_workers: 4               # 工作进程数
+    pin_memory: true
+
+
+# ============================================
+# Callbacks 配置
+# ============================================
+# 注意：Lightning CLI 的 callbacks 配置比较复杂
+# 建议先注释掉，使用程序化方式添加 callbacks
+# 或者在训练脚本中手动创建 callbacks
+
+# callbacks:
+#   - class_path: callbacks.jit_callbacks.EMACallback
+#     init_args:
+#       ema_decay1: 0.9999
+#       ema_decay2: 0.9996
+#   
+#   - class_path: callbacks.jit_callbacks.JiTModelCheckpoint
+#     init_args:
+#       dirpath: ./outputs/cifar10/checkpoints
+#       save_last_freq: 10
+#       save_milestone_freq: 50
+#   
+#   - class_path: callbacks.jit_callbacks.LearningRateSchedulerCallback
+#     init_args:
+#       lr_schedule: constant
+#       warmup_epochs: 5
+#       min_lr: 0.0
+#       epochs: 100
+#   
+#   - class_path: callbacks.jit_callbacks.MetricLoggerCallback
+#     init_args:
+#       log_freq: 50
+
+# 如果需要使用 callbacks，建议使用命令行添加或创建自定义训练脚本
+  
+  # FID Evaluation Callback（可选，CIFAR 没有预计算的 FID 统计）
+  # 如果需要评估，可以先生成参考统计文件
+  # - class_path: callbacks.jit_callbacks.FIDEvaluationCallback
+  #   init_args:
+  #     eval_freq: 20
+  #     num_images: 10000
+  #     batch_size: 100
+  #     num_classes: 10
+  #     img_size: 256
+  #     output_dir: ./outputs/cifar10/eval
+  #     fid_stats_file: null
+  #     use_ema: true
+
+
+# ============================================
+# Logger 配置
+# ============================================
+# 注意：Lightning CLI 中 logger 需要特殊配置
+# 如果遇到问题，可以注释掉 logger 配置，使用默认 logger
+# logger:
+#   class_path: lightning.pytorch.loggers.TensorBoardLogger
+#   init_args:
+#     save_dir: ./logs
+#     name: jit_cifar10
+
+
+# ============================================
+# Seed 配置
+# ============================================
+seed_everything: 42
+

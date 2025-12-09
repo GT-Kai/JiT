@@ -1,0 +1,61 @@
+# JiT-L/16 @ 256x256 Configuration
+# Large 模型配置
+
+trainer:
+  max_epochs: 600
+  accelerator: gpu
+  devices: 8
+  strategy: ddp
+  precision: bf16-mixed
+  gradient_clip_val: 1.0
+  accumulate_grad_batches: 1
+  log_every_n_steps: 100
+  enable_checkpointing: false
+  enable_progress_bar: true
+  enable_model_summary: true
+
+model:
+  class_path: models.modelmodule.JiTLightningModule
+  init_args:
+    model_name: JiT-L/16        # Large 模型
+    img_size: 256
+    num_classes: 1000
+    attn_dropout: 0.0
+    proj_dropout: 0.0
+    learning_rate: 0.00016
+    weight_decay: 0.0
+    ema_decay1: 0.9999
+    ema_decay2: 0.9996
+    P_mean: -0.8
+    P_std: 0.8
+    noise_scale: 1.0
+    t_eps: 0.05
+    label_drop_prob: 0.1
+    sampling_method: heun
+    num_sampling_steps: 50
+    cfg_scale: 2.4              # L 模型的 CFG
+    cfg_interval: [0.1, 1.0]
+
+data:
+  class_path: datas.datamodule.JiTDataModule
+  init_args:
+    data_path: ./data/imagenet
+    img_size: 256
+    batch_size: 128
+    num_workers: 12
+    pin_memory: true
+
+# callbacks:
+#   - class_path: callbacks.jit_callbacks.EMACallback
+#     init_args:
+#       ema_decay1: 0.9999
+#       ema_decay2: 0.9996
+
+# logger:
+#   class_path: lightning.pytorch.loggers.TensorBoardLogger
+#   init_args:
+#     save_dir: ./logs
+#     name: jit_l16_256
+
+seed_everything: 42
+

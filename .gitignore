@@ -1,0 +1,10 @@
+outputs/*
+__pycache__/*
+swanlog/*
+callbacks/__pycache__/*
+datas/__pycache__/*
+fid_stats/*
+lightning_logs/*
+models/__pycache__/*
+wandb/*
+util/__pycache__/*

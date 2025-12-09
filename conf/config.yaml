@@ -1,0 +1,135 @@
+# JiT Training Configuration
+# 基于 PyTorch Lightning CLI 的配置文件
+
+# ============================================
+# Trainer 配置
+# ============================================
+trainer:
+  # 训练轮数
+  max_epochs: 600
+  
+  # 硬件配置
+  accelerator: gpu
+  devices: 8                    # GPU 数量
+  strategy: ddp                 # 分布式策略 (ddp, ddp_spawn, fsdp)
+  
+  # 精度设置
+  precision: bf16-mixed         # 混合精度训练 (bf16-mixed, 16-mixed, 32)
+  
+  # 性能优化
+  gradient_clip_val: 1.0        # 梯度裁剪
+  accumulate_grad_batches: 1    # 梯度累积批次数
+  
+  # 日志和检查点
+  log_every_n_steps: 100        # 日志记录频率
+  enable_checkpointing: false   # 禁用默认 checkpoint（使用自定义）
+  enable_progress_bar: true     # 显示进度条
+  enable_model_summary: true    # 显示模型摘要
+  
+  # SwanLab 日志记录器
+  logger:
+    class_path: swanlab.integration.pytorch_lightning.SwanLabLogger
+    init_args:
+      project: JiT-ImageNet
+      experiment_name: jit-b16-256
+      description: "JiT-B/16 on ImageNet (256x256)"
+      config:
+        model: JiT-B/16
+        dataset: ImageNet
+        img_size: 256
+  
+  # 调试选项（可选）
+  # fast_dev_run: false         # 快速开发运行（测试用）
+  # limit_train_batches: 100    # 限制训练批次数（测试用）
+  # limit_val_batches: 10       # 限制验证批次数（测试用）
+  # callbacks:
+  #   - class_path: callbacks.jit_callbacks.EMACallback
+  #     init_args:
+  #       ema_decay1: 0.9999
+  #       ema_decay2: 0.9996
+  #   
+  #   - class_path: callbacks.jit_callbacks.JiTModelCheckpoint
+  #     init_args:
+  #       dirpath: ./outputs/jit_b16_256/checkpoints
+  #       save_last_freq: 5
+  #       save_milestone_freq: 100
+  #   
+  #   - class_path: callbacks.jit_callbacks.FIDEvaluationCallback
+  #     init_args:
+  #       eval_freq: 40
+  #       num_images: 50000
+  #       batch_size: 256
+  #       num_classes: 1000
+  #       img_size: 256
+  #       output_dir: ./outputs/jit_b16_256/eval
+  #       fid_stats_file: fid_stats/jit_in256_stats.npz
+  #       use_ema: true
+  #   
+  #   - class_path: callbacks.jit_callbacks.LearningRateSchedulerCallback
+  #     init_args:
+  #       lr_schedule: constant
+  #       warmup_epochs: 5
+  #       min_lr: 0.0
+  #       epochs: 600
+  #   
+  #   - class_path: callbacks.jit_callbacks.MetricLoggerCallback
+  #     init_args:
+  #       log_freq: 100
+
+
+# ============================================
+# Model 配置
+# ============================================
+model:
+  class_path: models.modelmodule.JiTLightningModule
+  init_args:
+    # 模型架构
+    model_name: JiT-B/16        # 模型名称 (JiT-B/16, JiT-L/16, JiT-H/16 等)
+    img_size: 256               # 图像尺寸 (256 或 512)
+    num_classes: 1000           # 类别数量
+    attn_dropout: 0.0           # 注意力 dropout
+    proj_dropout: 0.0           # 投影层 dropout (H 模型建议 0.2)
+    
+    # 优化器参数
+    learning_rate: 0.00016      # 学习率 (blr * world_size / 256)
+    weight_decay: 0.0           # 权重衰减
+    
+    # EMA 参数
+    ema_decay1: 0.9999          # 第一个 EMA 衰减率
+    ema_decay2: 0.9996          # 第二个 EMA 衰减率
+    
+    # 扩散模型参数
+    P_mean: -0.8                # 时间步采样均值
+    P_std: 0.8                  # 时间步采样标准差
+    noise_scale: 1.0            # 噪声缩放因子 (512 图像用 2.0)
+    t_eps: 0.05                 # 时间步最小值
+    label_drop_prob: 0.1        # 标签丢弃概率（CFG）
+    
+    # 采样参数
+    sampling_method: heun       # 采样方法 (euler 或 heun)
+    num_sampling_steps: 50      # 采样步数
+    cfg_scale: 2.9              # CFG 缩放因子
+    cfg_interval: [0.1, 1.0]    # CFG 应用区间
+
+
+# ============================================
+# Data 配置
+# ============================================
+data:
+  class_path: datas.datamodule.JiTDataModule
+  init_args:
+    # 数据集路径
+    data_path: ./data/imagenet  # ImageNet 数据集路径
+    
+    # 数据加载参数
+    img_size: 256               # 图像尺寸（需与 model.img_size 一致）
+    batch_size: 128             # 每个 GPU 的批次大小
+    num_workers: 12             # 数据加载工作进程数
+    pin_memory: true            # 固定内存
+    
+    # 分布式参数（自动设置，无需手动配置）
+    num_replicas: null          # GPU 数量（自动从 trainer 获取）
+    rank: null                  # 当前进程 rank（自动设置）
+
+seed_everything: 42
+
