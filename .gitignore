@@ -8,3 +8,4 @@ lightning_logs/*
 models/__pycache__/*
 wandb/*
 util/__pycache__/*
+generated_samples/*

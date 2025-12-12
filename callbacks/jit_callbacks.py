@@ -556,7 +556,8 @@ class ImageGenerationCallback(Callback):
                         import swanlab
                         # SwanLab 记录图像
                         trainer.logger.experiment.log({
-                            f"generated_images/": swanlab.Image(
+                            # SwanLab 标签结尾不能有 '/'，用平铺名称
+                            "generated_images": swanlab.Image(
                                 grid_image,
                                 caption=f"Epoch {current_epoch} - Classes: {class_labels.tolist()[:8]}..."
                             ),

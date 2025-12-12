@@ -1,12 +1,6 @@
-# JiT Training Configuration for CIFAR-10
-# 使用 CIFAR-10 数据集进行快速测试
-
-# ============================================
-# Trainer 配置
-# ============================================
 trainer:
   # 训练轮数（CIFAR 数据集较小，可以快速训练）
-  max_epochs: 100
+  max_epochs: 600
   
   # 硬件配置
   accelerator: gpu
@@ -37,11 +31,6 @@ trainer:
         model: JiT-B/16
         dataset: CIFAR-10
         img_size: 256
-  
-  # 快速测试选项（可选）
-  # fast_dev_run: false
-  # limit_train_batches: 100
-  # limit_val_batches: 10
   callbacks:
     - class_path: callbacks.jit_callbacks.EMACallback
       init_args:
@@ -73,10 +62,6 @@ trainer:
         fixed_classes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]  # CIFAR-10 所有类别
         log_every_n_epochs: 1     # 每个 epoch 记录一次
 
-
-# ============================================
-# Model 配置
-# ============================================
 model:
   class_path: models.modelmodule.JiTLightningModule
   init_args:
@@ -88,7 +73,7 @@ model:
     proj_dropout: 0.0
     
     # 优化器参数
-    learning_rate: 0.0001       # CIFAR 可以用稍小的学习率
+    learning_rate: 5.0e-5
     weight_decay: 0.0
     
     # EMA 参数
@@ -108,10 +93,6 @@ model:
     cfg_scale: 2.0              # CIFAR 可能需要较小的 CFG
     cfg_interval: [0.1, 1.0]
 
-
-# ============================================
-# Data 配置
-# ============================================
 data:
   class_path: datas.cifar_datamodule.CIFARDataModule
   init_args:
@@ -126,67 +107,5 @@ data:
     num_workers: 4               # 工作进程数
     pin_memory: true
 
-
-# ============================================
-# Callbacks 配置
-# ============================================
-# 注意：Lightning CLI 的 callbacks 配置比较复杂
-# 建议先注释掉，使用程序化方式添加 callbacks
-# 或者在训练脚本中手动创建 callbacks
-
-# callbacks:
-#   - class_path: callbacks.jit_callbacks.EMACallback
-#     init_args:
-#       ema_decay1: 0.9999
-#       ema_decay2: 0.9996
-#   
-#   - class_path: callbacks.jit_callbacks.JiTModelCheckpoint
-#     init_args:
-#       dirpath: ./outputs/cifar10/checkpoints
-#       save_last_freq: 10
-#       save_milestone_freq: 50
-#   
-#   - class_path: callbacks.jit_callbacks.LearningRateSchedulerCallback
-#     init_args:
-#       lr_schedule: constant
-#       warmup_epochs: 5
-#       min_lr: 0.0
-#       epochs: 100
-#   
-#   - class_path: callbacks.jit_callbacks.MetricLoggerCallback
-#     init_args:
-#       log_freq: 50
-
-# 如果需要使用 callbacks，建议使用命令行添加或创建自定义训练脚本
-  
-  # FID Evaluation Callback（可选，CIFAR 没有预计算的 FID 统计）
-  # 如果需要评估，可以先生成参考统计文件
-  # - class_path: callbacks.jit_callbacks.FIDEvaluationCallback
-  #   init_args:
-  #     eval_freq: 20
-  #     num_images: 10000
-  #     batch_size: 100
-  #     num_classes: 10
-  #     img_size: 256
-  #     output_dir: ./outputs/cifar10/eval
-  #     fid_stats_file: null
-  #     use_ema: true
-
-
-# ============================================
-# Logger 配置
-# ============================================
-# 注意：Lightning CLI 中 logger 需要特殊配置
-# 如果遇到问题，可以注释掉 logger 配置，使用默认 logger
-# logger:
-#   class_path: lightning.pytorch.loggers.TensorBoardLogger
-#   init_args:
-#     save_dir: ./logs
-#     name: jit_cifar10
-
-
-# ============================================
-# Seed 配置
-# ============================================
 seed_everything: 42
 
