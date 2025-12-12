@@ -101,12 +101,17 @@ class JiTDataModule(pl.LightningDataModule):
                 transform=transform_train
             )
             
-            # 设置分布式采样器
-            if self.num_replicas is not None and self.rank is not None:
+            # 设置分布式采样器（优先使用显式传入的 world_size / rank，其次从 torch.distributed 读取）
+            replicas = self.num_replicas
+            r = self.rank
+            if replicas is None and torch.distributed.is_available() and torch.distributed.is_initialized():
+                replicas = torch.distributed.get_world_size()
+                r = torch.distributed.get_rank()
+            if replicas is not None and r is not None and replicas > 1:
                 self.sampler_train = DistributedSampler(
                     self.dataset_train,
-                    num_replicas=self.num_replicas,
-                    rank=self.rank,
+                    num_replicas=replicas,
+                    rank=r,
                     shuffle=True
                 )
             else:

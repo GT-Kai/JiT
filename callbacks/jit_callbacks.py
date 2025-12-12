@@ -303,8 +303,8 @@ class FIDEvaluationCallback(Callback):
                 ema_callback.load_ema_to_model(pl_module, ema_version=1)
         
         # 生成图像
+        assert self.num_images % self.num_classes == 0, "num_images must be divisible by num_classes for balanced sampling"
         class_label_gen_world = np.arange(0, self.num_classes).repeat(self.num_images // self.num_classes)
-        class_label_gen_world = np.hstack([class_label_gen_world, np.zeros(50000)])
         
         for i in range(num_steps):
             print(f"生成步骤 {i}/{num_steps}")

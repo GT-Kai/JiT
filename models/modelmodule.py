@@ -46,6 +46,7 @@ class JiTLightningModule(pl.LightningModule):
         attn_dropout: float = 0.0,
         proj_dropout: float = 0.0,
         learning_rate: float = 1e-4,
+        base_lr: Optional[float] = None,
         weight_decay: float = 0.0,
         ema_decay1: float = 0.9999,
         ema_decay2: float = 0.9996,
@@ -79,6 +80,7 @@ class JiTLightningModule(pl.LightningModule):
         
         # 训练参数
         self.learning_rate = learning_rate
+        self.base_lr = base_lr  # 如果设置，将按 (base_lr * global_batch / 256) 缩放
         self.weight_decay = weight_decay
         self.label_drop_prob = label_drop_prob
         self.P_mean = P_mean
@@ -228,6 +230,18 @@ class JiTLightningModule(pl.LightningModule):
         Returns:
             优化器配置
         """
+        # 计算实际学习率：若提供 base_lr，则按 global batch 缩放（与原 README 行为一致）
+        if self.base_lr is not None and self.trainer is not None:
+            world_size = getattr(self.trainer, "world_size", 1) or 1
+            # 尝试从 datamodule 获取 batch_size
+            dm_batch = getattr(getattr(self.trainer, "datamodule", None), "batch_size", None)
+            if dm_batch is None:
+                dm_batch = 1
+            eff_batch_size = dm_batch * world_size
+            actual_lr = self.base_lr * eff_batch_size / 256.0
+        else:
+            actual_lr = self.learning_rate
+        
         # 为不同参数组设置不同的权重衰减
         no_decay = ['bias', 'norm']
         optimizer_grouped_parameters = [
@@ -245,7 +259,7 @@ class JiTLightningModule(pl.LightningModule):
         
         optimizer = torch.optim.AdamW(
             optimizer_grouped_parameters,
-            lr=self.learning_rate,
+            lr=actual_lr,
             betas=(0.9, 0.95)
         )
         

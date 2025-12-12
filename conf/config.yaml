@@ -42,39 +42,40 @@ trainer:
   # fast_dev_run: false         # 快速开发运行（测试用）
   # limit_train_batches: 100    # 限制训练批次数（测试用）
   # limit_val_batches: 10       # 限制验证批次数（测试用）
-  # callbacks:
-  #   - class_path: callbacks.jit_callbacks.EMACallback
-  #     init_args:
-  #       ema_decay1: 0.9999
-  #       ema_decay2: 0.9996
-  #   
-  #   - class_path: callbacks.jit_callbacks.JiTModelCheckpoint
-  #     init_args:
-  #       dirpath: ./outputs/jit_b16_256/checkpoints
-  #       save_last_freq: 5
-  #       save_milestone_freq: 100
-  #   
-  #   - class_path: callbacks.jit_callbacks.FIDEvaluationCallback
-  #     init_args:
-  #       eval_freq: 40
-  #       num_images: 50000
-  #       batch_size: 256
-  #       num_classes: 1000
-  #       img_size: 256
-  #       output_dir: ./outputs/jit_b16_256/eval
-  #       fid_stats_file: fid_stats/jit_in256_stats.npz
-  #       use_ema: true
-  #   
-  #   - class_path: callbacks.jit_callbacks.LearningRateSchedulerCallback
-  #     init_args:
-  #       lr_schedule: constant
-  #       warmup_epochs: 5
-  #       min_lr: 0.0
-  #       epochs: 600
-  #   
-  #   - class_path: callbacks.jit_callbacks.MetricLoggerCallback
-  #     init_args:
-  #       log_freq: 100
+  callbacks:
+    - class_path: callbacks.jit_callbacks.EMACallback
+      init_args:
+        ema_decay1: 0.9999
+        ema_decay2: 0.9996
+    
+    - class_path: callbacks.jit_callbacks.JiTModelCheckpoint
+      init_args:
+        dirpath: ./outputs/jit_b16_256/checkpoints
+        save_last_freq: 5
+        save_milestone_freq: 100
+    
+    - class_path: callbacks.jit_callbacks.FIDEvaluationCallback
+      init_args:
+        eval_freq: 40
+        num_images: 50000
+        batch_size: 256
+        num_classes: 1000
+        img_size: 256
+        output_dir: ./outputs/jit_b16_256/eval
+        fid_stats_file: fid_stats/jit_in256_stats.npz
+        use_ema: true
+    
+    - class_path: callbacks.jit_callbacks.LearningRateSchedulerCallback
+      init_args:
+        learning_rate: null      # 若未提供则由 base_lr 计算
+        lr_schedule: constant
+        warmup_epochs: 5
+        min_lr: 0.0
+        epochs: 600
+    
+    - class_path: callbacks.jit_callbacks.MetricLoggerCallback
+      init_args:
+        log_freq: 100
 
 
 # ============================================
@@ -91,7 +92,8 @@ model:
     proj_dropout: 0.0           # 投影层 dropout (H 模型建议 0.2)
     
     # 优化器参数
-    learning_rate: 0.00016      # 学习率 (blr * world_size / 256)
+    base_lr: 5.0e-5             # base lr，实际 lr = base_lr * (global_batch / 256)
+    learning_rate: null         # 若需要固定 lr，可填数值；否则留空走 base_lr
     weight_decay: 0.0           # 权重衰减
     
     # EMA 参数
@@ -128,7 +130,7 @@ data:
     pin_memory: true            # 固定内存
     
     # 分布式参数（自动设置，无需手动配置）
-    num_replicas: null          # GPU 数量（自动从 trainer 获取）
+    num_replicas: null          # GPU 数量（自动从 trainer/torch.distributed 获取）
     rank: null                  # 当前进程 rank（自动设置）
 
 seed_everything: 42
